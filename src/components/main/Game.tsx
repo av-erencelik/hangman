@@ -3,6 +3,7 @@ import Button from "../button/Button";
 
 const Game = () => {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const descRef = useRef<HTMLParagraphElement>(null);
   const [remainingGuesses, setRemainingGuesses] = useState(7);
   const [isGameStart, setIsGameStart] = useState(false);
   const [word, setWord] = useState("");
@@ -94,7 +95,10 @@ const Game = () => {
     }
   }
   function checkGameOver() {
-    if (renderedWord == word.split("")) {
+    if (word === "") {
+      return;
+    }
+    if (renderedWord.join("") == word) {
       setGameStatus("You guessed the correct word!");
       setShowModal(true);
     } else if (remainingGuesses <= 0) {
@@ -119,8 +123,9 @@ const Game = () => {
   }
   useEffect(() => {
     drawHangman();
-  }, [remainingGuesses, canvas, isGameStart]);
+  }, [remainingGuesses, canvas, isGameStart, isRestartGame]);
   useEffect(() => {
+    let tempWord: string;
     const getWord = async () => {
       const response = await fetch(
         `https://api.wordnik.com/v4/words.json/randomWord?hasDictionaryDef=true&minCorpusCount=0&maxCorpusCount=0&minLength=5&maxLength=15&api_key=${
@@ -131,11 +136,27 @@ const Game = () => {
       const returnedWord: string = data.word
         .toUpperCase()
         .replace(/[`~!@#$%^&*()_|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, "");
+      tempWord = data.word;
       setWord(returnedWord);
       setRenderedWord(() => returnedWord.split("").map(() => ""));
     };
+    const getDefinition = async () => {
+      const response = await fetch(
+        `https://api.wordnik.com/v4/word.json/${tempWord}/definitions?limit=1&includeRelated=false&useCanonical=false&includeTags=false&api_key=${
+          import.meta.env.VITE_WORDNIK_API_KEY
+        }`
+      );
+      const data = await response.json();
+      console.log(data[0]);
+      console.log(descRef.current);
+      descRef.current!.innerHTML = data[0].text;
+    };
+    const getData = async () => {
+      await getWord();
+      await getDefinition();
+    };
     if (isGameStart || isRestartGame) {
-      getWord();
+      getData();
     }
   }, [isGameStart, isRestartGame]);
   useEffect(() => {
@@ -190,6 +211,9 @@ const Game = () => {
               <Button onClick={handleSelectLetter}>Y</Button>
               <Button onClick={handleSelectLetter}>Z</Button>
             </div>
+          </div>
+          <div>
+            <p ref={descRef}></p>
           </div>
           <div className="flex gap-5 md:w-[500px] w-[300px] justify-center flex-wrap">
             {renderedWord.map((letter, index) => {
